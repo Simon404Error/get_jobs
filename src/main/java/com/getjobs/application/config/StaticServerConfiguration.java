@@ -71,12 +71,19 @@ public class StaticServerConfiguration {
                 URL url = uri.toURL();
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
-                connection.setRequestMethod("GET");
+                connection.setRequestMethod("HEAD");
                 connection.setConnectTimeout(2000);
                 connection.setReadTimeout(2000);
                 connection.setInstanceFollowRedirects(false);
 
-                int responseCode = connection.getResponseCode();
+                int responseCode;
+                try {
+                    responseCode = connection.getResponseCode();
+                } catch (IOException e) {
+                    // 3xx response triggers IOException on some JVMs, but means server is alive
+                    connection.disconnect();
+                    return true;
+                }
                 connection.disconnect();
 
                 if (responseCode >= 200 && responseCode < 500) {
