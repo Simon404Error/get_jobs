@@ -185,14 +185,37 @@ export default function ZhilianPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <PageHeader
+        icon={<BiBriefcase className="text-2xl" />}
         title="智联招聘"
-        isLoggedIn={isLoggedIn}
-        checkingLogin={checkingLogin}
-        isDelivering={isDelivering}
-        onStartDelivery={handleStartDelivery}
-        onStopDelivery={handleStopDelivery}
-        onLogout={() => setShowLogoutDialog(true)}
-        backendAvailable={backendAvailable}
+        subtitle="配置智联招聘平台的求职参数"
+        iconClass="text-white"
+        accentBgClass="bg-blue-500"
+        actions={
+          <div className="flex items-center gap-2">
+            {checkingLogin ? (
+              <Button size="sm" disabled className="rounded-full bg-gray-300 text-gray-600 cursor-not-allowed px-4 shadow">
+                <BiPlay className="mr-1" /> 检查登录中...
+              </Button>
+            ) : isLoggedIn ? (
+              <>
+                {isDelivering ? (
+                  <Button size="sm" onClick={handleStopDelivery} className="rounded-full bg-red-500 hover:bg-red-600 text-white px-4 shadow">
+                    <BiStop className="mr-1" /> 停止投递
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={handleStartDelivery} className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white px-4 shadow">
+                    <BiPlay className="mr-1" /> 开始投递
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setShowLogoutDialog(true)} className="rounded-full text-red-500 hover:bg-red-50 px-3">
+                  <BiLogOut className="mr-1" /> 退出
+                </Button>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">{backendAvailable ? '请扫码登录' : '后端未连接'}</span>
+            )}
+          </div>
+        }
       />
 
       <Tabs defaultValue="config">
