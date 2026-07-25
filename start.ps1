@@ -40,14 +40,10 @@ do {
 Write-Host "  Backend ready." -ForegroundColor Green
 
 Write-Host ""
-Write-Host "[4/4] Opening browser..." -ForegroundColor Yellow
-Start-Process "http://localhost:6866"
-
-Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  All services started!" -ForegroundColor Green
 Write-Host "  UI:  http://localhost:6866" -ForegroundColor White
 Write-Host "  API: http://localhost:8888" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Close this window anytime. Services keep running." -ForegroundColor Gray
+Write-Host "Browser will open automatically. Close this window anytime." -ForegroundColor Gray
