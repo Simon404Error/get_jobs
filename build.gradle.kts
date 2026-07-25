@@ -68,6 +68,7 @@ springBoot {
 
 // 正确地配置 BootRun（注意类型是 BootRun）
 tasks.named<BootRun>("bootRun") {
+        environment("PLAYWRIGHT_NODEJS_PATH", """${System.getenv("USERPROFILE")}\.cache\ms-playwright-java\node.exe""")
     systemProperty("file.encoding", "UTF-8")
     systemProperty("sun.stdout.encoding", "UTF-8")
     systemProperty("sun.stderr.encoding", "UTF-8")
