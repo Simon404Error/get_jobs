@@ -123,13 +123,6 @@ get_jobs/
 
 ---
 
-## 联系与社区
-
-- 原项目 QQ 交流群：[点击加入](https://qm.qq.com/q/qJwmIrqPU)（答案：`get_jobs`）
-- 源码镜像（国内）：[gitee/loks666/get_jobs](https://gitee.com/lok666/get_jobs)
-
----
-
 ## 参与贡献
 
 1. Fork 本仓库
