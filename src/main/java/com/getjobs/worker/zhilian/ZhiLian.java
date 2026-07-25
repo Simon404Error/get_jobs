@@ -535,6 +535,9 @@ public class ZhiLian {
         url.append("jl").append(config.getCityCode()).append("/");
         url.append("p").append(pageNum).append("?");
         url.append(JobUtils.appendParam("sl", config.getSalary()));
+        if (config.getCompanyType() != null && !config.getCompanyType().isEmpty() && !"不限".equals(config.getCompanyType())) {
+            url.append(JobUtils.appendParam("ct", config.getCompanyType()));
+        }
         return url.toString();
     }
 

@@ -158,6 +158,7 @@ public class ZhilianService {
             toInsert.setDegree(incoming.getDegree());
             toInsert.setExperience(incoming.getExperience());
             toInsert.setFilterDeadHr(incoming.getFilterDeadHr());
+            toInsert.setCompanyType(incoming.getCompanyType());
             toInsert.setCreatedAt(now);
             toInsert.setUpdatedAt(now);
             zhilianConfigMapper.insert(toInsert);
@@ -173,6 +174,7 @@ public class ZhilianService {
             if (incoming.getDegree() != null) toUpdate.setDegree(incoming.getDegree());
             if (incoming.getExperience() != null) toUpdate.setExperience(incoming.getExperience());
             if (incoming.getFilterDeadHr() != null) toUpdate.setFilterDeadHr(incoming.getFilterDeadHr());
+            if (incoming.getCompanyType() != null) toUpdate.setCompanyType(incoming.getCompanyType());
             toUpdate.setCreatedAt(first.getCreatedAt());
             toUpdate.setUpdatedAt(now);
             zhilianConfigMapper.updateById(toUpdate);
@@ -269,7 +271,8 @@ public class ZhilianService {
             "ALTER TABLE zhilian_config ADD COLUMN wait_time INTEGER DEFAULT NULL",
             "ALTER TABLE zhilian_config ADD COLUMN degree VARCHAR(50)",
             "ALTER TABLE zhilian_config ADD COLUMN experience VARCHAR(50)",
-            "ALTER TABLE zhilian_config ADD COLUMN filter_dead_hr INTEGER DEFAULT 0"
+            "ALTER TABLE zhilian_config ADD COLUMN filter_dead_hr INTEGER DEFAULT 0",
+            "ALTER TABLE zhilian_config ADD COLUMN company_type VARCHAR(50)"
         };
         for (String sql : sqls) {
             try (java.sql.Connection conn = dataSource.getConnection();

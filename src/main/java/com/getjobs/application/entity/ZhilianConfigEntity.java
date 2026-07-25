@@ -26,6 +26,9 @@ public class ZhilianConfigEntity {
     private String degree;
     /** 工作经验（中文名称或代码，单值） */
     private String experience;
+    /** 公司性质：不限/国企/外企/合资/民营/上市公司/事业单位 */
+    private String companyType;
+
     /** 是否过滤不活跃HR（1=启用，0=关闭） */
     private Integer filterDeadHr;
     /** 创建时间 */

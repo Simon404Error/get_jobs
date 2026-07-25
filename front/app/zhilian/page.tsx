@@ -22,6 +22,7 @@ interface ZhilianConfig {
   degree?: string
   experience?: string
   filterDeadHr?: number
+  companyType?: string
 }
 
 interface Option { id?: number; name: string; code: string }
@@ -43,6 +44,7 @@ export default function ZhilianPage() {
   const [config, setConfig] = useState<ZhilianConfig>({
     keywords: '', cityCode: '', salary: '', degree: '', experience: '',
     filterDeadHr: 0,
+    companyType: '',
   })
   const [options, setOptions] = useState<ZhilianOptions>({ city: [] })
   const [loadingConfig, setLoadingConfig] = useState(true)
@@ -306,6 +308,18 @@ export default function ZhilianPage() {
                     <option value="1">开启</option>
                   </Select>
                   <p className="text-xs text-muted-foreground">开启后将过滤不活跃的HR</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>公司性质</Label>
+                  <Select value={config.companyType || ''} onChange={(e) => setConfig({ ...config, companyType: e.target.value })}>
+                    <option value="">不限</option>
+                    <option value="国企">国企</option>
+                    <option value="外企">外企</option>
+                    <option value="合资">合资</option>
+                    <option value="民营">民营</option>
+                    <option value="上市公司">上市公司</option>
+                    <option value="事业单位">事业单位</option>
+                  </Select>
                 </div>
               </div>
             </CardContent>
