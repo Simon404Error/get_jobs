@@ -41,39 +41,7 @@ public class ZhilianController {
 
     // ==================== 配置管理相关接口 ====================
 
-    /**
-     * 获取 智联 配置与可选项
-     */
-    @GetMapping("/config")
-    public Map<String, Object> getAllZhilianConfig() {
-        Map<String, Object> result = new HashMap<>();
-
-        ZhilianConfigEntity config = zhilianService.getFirstConfig();
-        if (config == null) {
-            config = new ZhilianConfigEntity();
-        }
-
-        Map<String, List<Map<String, String>>> options = new HashMap<>();
-        options.put("city", zhilianService.getOptionsByType("city").stream().map(e -> {
-            Map<String, String> m = new HashMap<>();
-            m.put("name", e.getName());
-            m.put("code", e.getCode());
-            return m;
-        }).collect(Collectors.toList()));
-        // 智联薪资目前不枚举，前端可用文本输入或简单选择"不限"
-
-        result.put("config", config);
-        result.put("options", options);
-        return result;
-    }
-
-    /**
-     * 更新 智联 配置（选择性更新第一条记录）
-     */
-    @PutMapping("/config")
-    public ZhilianConfigEntity updateConfig(@RequestBody ZhilianConfigEntity config) {
-        return zhilianService.updateConfig(config);
-    }
+    // Config endpoints moved to ZhilianConfigController
 
     /**
      * 返回城市选项列表
