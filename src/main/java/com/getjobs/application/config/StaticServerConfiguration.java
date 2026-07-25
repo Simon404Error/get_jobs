@@ -71,15 +71,26 @@ public class StaticServerConfiguration {
                 URL url = uri.toURL();
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
-                connection.setRequestMethod("GET");
+                connection.setRequestMethod("HEAD");
                 connection.setConnectTimeout(2000);
                 connection.setReadTimeout(2000);
                 connection.setInstanceFollowRedirects(false);
 
-                int responseCode = connection.getResponseCode();
+                int responseCode;
+                try {
+                    responseCode = connection.getResponseCode();
+                } catch (IOException e) {
+                    // 3xx 或某些响应可能触发 IOException，但只要有响应就是活的
+                    responseCode = 0;
+                }
                 connection.disconnect();
 
+                // 任何非异常响应都说明前端服务在运行
                 if (responseCode >= 200 && responseCode < 500) {
+                    return true;
+                }
+                // getResponseCode 抛异常但连接成功也说明服务存在
+                if (responseCode == 0) {
                     return true;
                 }
             } catch (Exception e) {
