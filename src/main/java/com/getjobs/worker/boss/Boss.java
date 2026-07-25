@@ -393,6 +393,19 @@ public class Boss {
                 resumeSubmission(keyword, job);
                 postCount++;
 
+                // 投递间隔等待
+                if (config.getWaitTime() != null) {
+                    try {
+                        int waitSeconds = Integer.parseInt(config.getWaitTime());
+                        if (waitSeconds > 0) {
+                            log.info("等待 {} 秒后继续下一个岗位...", waitSeconds);
+                            PlaywrightUtil.sleep(waitSeconds);
+                        }
+                    } catch (NumberFormatException e) {
+                        log.warn("waitTime配置无效: {}", config.getWaitTime());
+                    }
+                }
+
                 // 为避免点击下面的卡片触发页面刷新：在点击5个卡片之后，每次点击后适度下滑
                 try {
                     if (i >= 5) {

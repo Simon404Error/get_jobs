@@ -679,6 +679,22 @@ export default function BossPage() {
                   <option value="1">开启</option>
                 </Select>
                 <p className="text-xs text-muted-foreground">开启后将过滤活跃状态包含“年”的HR，但仍保存数据。</p>
+
+              {/* 投递间隔 */}
+              <div className="space-y-2">
+                <Label htmlFor="waitTime">投递间隔（秒）</Label>
+                <Input
+                  id="waitTime"
+                  type="number"
+                  min="0"
+                  max="300"
+                  value={config.waitTime ?? ''}
+                  onChange={(e) => setConfig({ ...config, waitTime: e.target.value ? Number(e.target.value) : undefined })}
+                  placeholder="例如 5"
+                  className="rounded-full"
+                />
+                <p className="text-xs text-muted-foreground">每个岗位投递后的等待秒数，设 0 或留空表示不等待</p>
+              </div>
               </div>
               </div>
             </CardContent>
