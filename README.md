@@ -23,16 +23,30 @@
 
 ## 环境要求
 
-| 依赖 | 版本 | 下载 |
+| 依赖 | 版本 | 说明 |
 |------|------|------|
-| Java JDK | 21+ | [Adoptium](https://adoptium.net/) |
-| Node.js | 18+ | [nodejs.org](https://nodejs.org/) |
+| Java JDK | 21+ | 必须，[Adoptium 下载](https://adoptium.net/) |
+| Node.js | 18+ | 仅克隆仓库方式需要，JAR 包方式不需要 |
 
 > 项目自动判断系统环境并下载对应浏览器驱动，无需手动安装 Chrome。
 
 ---
 
 ## 快速开始
+
+### 方式一：下载 JAR 包（推荐，无需 Node.js）
+
+从 [Releases](https://github.com/Simon404Error/get_jobs/releases) 页面下载最新 `get_jobs-*.jar`，双击运行或：
+
+```bash
+java -jar get_jobs-0.0.1-SNAPSHOT.jar
+```
+
+浏览器打开 `http://localhost:8888` 即可使用。
+
+> 首次运行会自动下载 Playwright 浏览器驱动（约 200MB），请耐心等待。
+
+### 方式二：克隆仓库（可自定义修改）
 
 ```bash
 # 1. 克隆仓库
