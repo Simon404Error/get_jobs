@@ -101,6 +101,30 @@ public class StaticResourceConfiguration implements WebMvcConfigurer {
         } else {
             log.warn("未找到静态资源目录 (dist 或 static)");
         }
+
+        // 始终注册 classpath 静态资源，确保 JAR 包部署时可用
+        registry.addResourceHandler("/**")
+                .addResourceLocations("classpath:/dist/", "classpath:/static/")
+                .setCachePeriod(0)
+                .resourceChain(true)
+                .addResolver(new PathResourceResolver() {
+                    @Override
+                    protected Resource getResource(String resourcePath, Resource location) {
+                        try {
+                            Resource requestedResource = location.createRelative(resourcePath);
+                            if (requestedResource.exists() && requestedResource.isReadable()) return requestedResource;
+                            if (!resourcePath.startsWith("api/") && !resourcePath.contains(".")) {
+                                Resource r = location.createRelative(resourcePath + ".html");
+                                if (r.exists() && r.isReadable()) return r;
+                                r = location.createRelative(resourcePath + ".txt");
+                                if (r.exists() && r.isReadable()) return r;
+                                r = location.createRelative("index.html");
+                                if (r.exists() && r.isReadable()) return r;
+                            }
+                        } catch (Exception ignored) {}
+                        return null;
+                    }
+                });
     }
 
     /**
