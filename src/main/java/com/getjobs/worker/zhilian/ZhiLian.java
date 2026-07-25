@@ -353,6 +353,19 @@ public class ZhiLian {
                     sendProgress("用户取消投递或已达上限", null, null);
                     return false;
                 }
+
+                // 投递间隔等待
+                if (config.getWaitTime() != null) {
+                    try {
+                        int waitSeconds = Integer.parseInt(config.getWaitTime());
+                        if (waitSeconds > 0) {
+                            log.info("等待 {} 秒后继续下一个岗位...", waitSeconds);
+                            PlaywrightUtil.sleep(waitSeconds);
+                        }
+                    } catch (NumberFormatException e) {
+                        log.warn("waitTime配置无效: {}", config.getWaitTime());
+                    }
+                }
             }
 
             return true;

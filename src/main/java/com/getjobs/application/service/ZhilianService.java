@@ -1,11 +1,14 @@
 package com.getjobs.application.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.getjobs.application.entity.ZhilianConfigEntity;
 import com.getjobs.application.entity.ZhilianOptionEntity;
 import com.getjobs.application.entity.ZhilianJobDataEntity;
 import com.getjobs.application.mapper.ZhilianConfigMapper;
 import com.getjobs.application.mapper.ZhilianOptionMapper;
+import com.getjobs.application.entity.BlacklistEntity;
+import com.getjobs.application.mapper.BlacklistMapper;
 import com.getjobs.application.mapper.ZhilianJobDataMapper;
 import com.getjobs.worker.zhilian.ZhilianConfig;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ import java.util.stream.Collectors;
 public class ZhilianService {
     private final ZhilianConfigMapper zhilianConfigMapper;
     private final ZhilianOptionMapper zhilianOptionMapper;
+    private final BlacklistMapper blacklistMapper;
     private final ZhilianJobDataMapper zhilianJobDataMapper;
     private final DataSource dataSource;
 
@@ -77,6 +81,28 @@ public class ZhilianService {
         } else {
             config.setSalary(salary);
         }
+
+        // 学历
+        String degree = safeTrim(entity.getDegree());
+        if (degree != null && !degree.isEmpty() && !"不限".equals(degree)) {
+            config.setDegree(degree);
+        }
+
+        // 工作经验
+        String experience = safeTrim(entity.getExperience());
+        if (experience != null && !experience.isEmpty() && !"不限".equals(experience)) {
+            config.setExperience(experience);
+        }
+
+        // 调试模式
+        config.setDebugger(entity.getDebugger() != null && entity.getDebugger() == 1);
+
+        // 投递间隔
+        config.setWaitTime(entity.getWaitTime() != null ? String.valueOf(entity.getWaitTime()) : null);
+
+        // 过滤不活跃HR
+        config.setFilterDeadHR(entity.getFilterDeadHr() != null && entity.getFilterDeadHr() == 1);
+
         return config;
     }
 
@@ -124,9 +150,14 @@ public class ZhilianService {
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         if (first == null) {
             ZhilianConfigEntity toInsert = new ZhilianConfigEntity();
+            toInsert.setDebugger(incoming.getDebugger());
+            toInsert.setWaitTime(incoming.getWaitTime());
             toInsert.setKeywords(incoming.getKeywords());
             toInsert.setCityCode(incoming.getCityCode());
             toInsert.setSalary(incoming.getSalary());
+            toInsert.setDegree(incoming.getDegree());
+            toInsert.setExperience(incoming.getExperience());
+            toInsert.setFilterDeadHr(incoming.getFilterDeadHr());
             toInsert.setCreatedAt(now);
             toInsert.setUpdatedAt(now);
             zhilianConfigMapper.insert(toInsert);
@@ -134,14 +165,41 @@ public class ZhilianService {
         } else {
             ZhilianConfigEntity toUpdate = new ZhilianConfigEntity();
             toUpdate.setId(first.getId());
+            if (incoming.getDebugger() != null) toUpdate.setDebugger(incoming.getDebugger());
+            if (incoming.getWaitTime() != null) toUpdate.setWaitTime(incoming.getWaitTime());
             if (incoming.getKeywords() != null) toUpdate.setKeywords(incoming.getKeywords());
             if (incoming.getCityCode() != null) toUpdate.setCityCode(incoming.getCityCode());
             if (incoming.getSalary() != null) toUpdate.setSalary(incoming.getSalary());
+            if (incoming.getDegree() != null) toUpdate.setDegree(incoming.getDegree());
+            if (incoming.getExperience() != null) toUpdate.setExperience(incoming.getExperience());
+            if (incoming.getFilterDeadHr() != null) toUpdate.setFilterDeadHr(incoming.getFilterDeadHr());
             toUpdate.setCreatedAt(first.getCreatedAt());
             toUpdate.setUpdatedAt(now);
             zhilianConfigMapper.updateById(toUpdate);
             return zhilianConfigMapper.selectById(first.getId());
         }
+    }
+
+    // ========== 黑名单 ==========
+
+    public List<BlacklistEntity> getAllBlacklist() {
+        return blacklistMapper.selectList(null);
+    }
+
+    public boolean addBlacklist(String type, String value) {
+        LambdaQueryWrapper<BlacklistEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BlacklistEntity::getType, type).eq(BlacklistEntity::getValue, value);
+        if (blacklistMapper.selectCount(wrapper) > 0) return false;
+        BlacklistEntity entity = new BlacklistEntity();
+        entity.setType(type);
+        entity.setValue(value);
+        return blacklistMapper.insert(entity) > 0;
+    }
+
+    public boolean removeBlacklist(String type, String value) {
+        LambdaQueryWrapper<BlacklistEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BlacklistEntity::getType, type).eq(BlacklistEntity::getValue, value);
+        return blacklistMapper.delete(wrapper) > 0;
     }
 
     // ========== Option 辅助 ==========

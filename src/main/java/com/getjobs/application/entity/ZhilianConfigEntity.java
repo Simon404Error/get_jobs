@@ -11,21 +11,25 @@ import java.time.LocalDateTime;
 @TableName("zhilian_config")
 public class ZhilianConfigEntity {
     @TableId(type = IdType.AUTO)
-    /** 主键ID */
     private Long id;
-
+    /** 调试模式：1=开启，0=关闭 */
+    private Integer debugger;
+    /** 投递间隔（秒） */
+    private Integer waitTime;
     /** 搜索关键词（逗号或括号列表，例如 "[Java,后端]" 或 "Java,后端"） */
     private String keywords;
-
-    /** 城市（中文名或代码，单值） */
+    /** 城市（中文名称或代码，单值） */
     private String cityCode;
-
-    /** 薪资范围（中文名或代码，单值） */
+    /** 薪资范围（中文名称或代码，单值） */
     private String salary;
-
+    /** 学历要求（中文名称或代码，单值） */
+    private String degree;
+    /** 工作经验（中文名称或代码，单值） */
+    private String experience;
+    /** 是否过滤不活跃HR（1=启用，0=关闭） */
+    private Integer filterDeadHr;
     /** 创建时间 */
     private LocalDateTime createdAt;
-
     /** 更新时间 */
     private LocalDateTime updatedAt;
 }

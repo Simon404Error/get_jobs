@@ -13,21 +13,22 @@ import java.util.Objects;
  */
 @Data
 public class ZhilianConfig {
-    /**
-     * 搜索关键词列表
-     */
+    /** 调试模式 */
+    private Boolean debugger;
+    /** 投递间隔（秒） */
+    private String waitTime;
+    /** 搜索关键词列表 */
     private List<String> keywords;
-
-    /**
-     * 城市编码
-     */
+    /** 城市编码 */
     private String cityCode;
-
-    /**
-     * 薪资范围
-     */
+    /** 薪资范围 */
     private String salary;
-
+    /** 学历要求 */
+    private String degree;
+    /** 工作经验 */
+    private String experience;
+    /** 是否过滤不活跃HR */
+    private Boolean filterDeadHR;
 
     // 注意：已改为在 ZhilianJobService 中通过 ConfigService 构建配置
     // 保留空的 init 以兼容旧调用，但建议不要再使用

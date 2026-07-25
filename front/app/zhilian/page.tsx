@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { createSSEWithBackoff } from '@/lib/sse'
-import { BiLogOut, BiSave, BiBriefcase, BiPlay, BiStop } from 'react-icons/bi'
+import { BiLogOut, BiSave, BiBriefcase, BiPlay, BiStop, BiSearch, BiTrash, BiPlus, BiBuilding } from 'react-icons/bi'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
@@ -14,13 +14,20 @@ import PageHeader from '@/app/components/PageHeader'
 
 interface ZhilianConfig {
   id?: number
+  debugger?: number
+  waitTime?: number
   keywords?: string
   cityCode?: string
   salary?: string
+  degree?: string
+  experience?: string
+  filterDeadHr?: number
 }
 
-interface Option { name: string; code: string }
+interface Option { id?: number; name: string; code: string }
 interface ZhilianOptions { city: Option[] }
+
+interface BlacklistItem { id: number; value: string; type: string }
 
 export default function ZhilianPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -33,21 +40,25 @@ export default function ZhilianPage() {
   const [logoutResult, setLogoutResult] = useState<{ success: boolean; message: string } | null>(null)
   const [backendAvailable, setBackendAvailable] = useState(true)
 
-  const [config, setConfig] = useState<ZhilianConfig>({ keywords: '', cityCode: '', salary: '' })
+  const [config, setConfig] = useState<ZhilianConfig>({
+    keywords: '', cityCode: '', salary: '', degree: '', experience: '',
+    filterDeadHr: 0,
+  })
   const [options, setOptions] = useState<ZhilianOptions>({ city: [] })
   const [loadingConfig, setLoadingConfig] = useState(true)
+  const [blacklist, setBlacklist] = useState<BlacklistItem[]>([])
+  const [newBlacklistKeyword, setNewBlacklistKeyword] = useState('')
+  const [blacklistType, setBlacklistType] = useState('company')
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
-      console.warn('[智联招聘] EventSource 不可用，无法连接SSE')
       setCheckingLogin(false)
       return
     }
 
     const client = createSSEWithBackoff('http://localhost:8888/api/jobs/login-status/stream', {
-      onOpen: () => console.log('[智联招聘 SSE] 连接已打开'),
+      onOpen: () => console.log('[智联 SSE] 已连接'),
       onError: (e, attempt, delay) => {
-        console.warn(`[智联招聘 SSE] 连接错误，第${attempt}次重连，延迟 ${delay}ms`, e)
         setCheckingLogin(false)
       },
       listeners: [
@@ -56,13 +67,9 @@ export default function ZhilianPage() {
           handler: (event) => {
             try {
               const data = JSON.parse(event.data)
-              console.log('[智联招聘 SSE] connected事件数据:', data)
-              console.log('[智联招聘 SSE] zhilianLoggedIn状态:', data.zhilianLoggedIn)
               setIsLoggedIn(data.zhilianLoggedIn || false)
               setCheckingLogin(false)
-            } catch (error) {
-              console.error('[智联招聘 SSE] 解析连接消息失败:', error)
-            }
+            } catch (error) {}
           },
         },
         {
@@ -70,259 +77,250 @@ export default function ZhilianPage() {
           handler: (event) => {
             try {
               const data = JSON.parse(event.data)
-              console.log('[智联招聘 SSE] login-status事件数据:', data)
               if (data.platform === 'zhilian') {
-                console.log('[智联招聘 SSE] 智联登录状态变更:', data.isLoggedIn)
                 setIsLoggedIn(data.isLoggedIn)
                 setCheckingLogin(false)
               }
-            } catch (error) {
-              console.error('[智联招聘 SSE] 解析登录状态消息失败:', error)
-            }
+            } catch (error) {}
           },
         },
         { name: 'ping', handler: () => {} },
       ],
     })
 
-    return () => client.close()
+    return () => { client.close() }
   }, [])
 
-  // 与猎聘一致的关键词解析/序列化
-  const parseKeywordsFromDb = (raw?: string): string => {
-    if (!raw) return ''
-    const t = raw.trim()
-    if (t.startsWith('[') && t.endsWith(']')) {
-      try {
-        const arr = JSON.parse(t)
-        if (Array.isArray(arr)) return arr.filter(Boolean).join(', ')
-      } catch (e) {
-        console.warn('[智联] 解析关键词JSON失败，使用原值:', e)
-      }
-    }
-    return t.replace(/，/g, ',')
-  }
+  useEffect(() => {
+    fetchConfig()
+  }, [])
 
-  const serializeKeywordsForDb = (display?: string): string => {
-    const raw = (display || '').trim()
-    if (!raw) return '[]'
-    const norm = raw.replace(/，/g, ',')
-    const tokens = norm
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-    return JSON.stringify(tokens)
-  }
-
-  const fetchAllData = async () => {
+  const fetchConfig = async () => {
     try {
       const res = await fetch('http://localhost:8888/api/zhilian/config')
       const data = await res.json()
       if (data.config) {
-        const normalized = { ...data.config }
-        normalized.keywords = parseKeywordsFromDb(data.config.keywords)
-        setConfig(normalized)
+        setConfig(prev => ({ ...prev, ...data.config }))
       }
       if (data.options) setOptions(data.options)
+      if (data.blacklist) setBlacklist(data.blacklist)
     } catch (e) {
-      console.error('[智联] 获取配置失败:', e)
+      console.error('获取配置失败:', e)
+      setBackendAvailable(false)
     } finally {
       setLoadingConfig(false)
     }
   }
 
-  useEffect(() => { fetchAllData() }, [])
-
-  // 探测后端可用性（与 51job 保持一致风格）
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('http://localhost:8888/api/zhilian/config', { method: 'GET' })
-        const ok = !!res && res.ok
-        setBackendAvailable(ok)
-        if (ok) {
-          await fetchAllData()
-        } else {
-          setLoadingConfig(false)
-        }
-      } catch (e) {
-        setBackendAvailable(false)
-        setLoadingConfig(false)
-      }
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const handleStartDelivery = async () => {
+  const handleSave = async () => {
     try {
-      setIsDelivering(true)
-      const response = await fetch('http://localhost:8888/api/zhilian/start', { method: 'POST' })
-      const data = await response.json()
-      if (!data.success) setIsDelivering(false)
-    } catch (error) {
-      setIsDelivering(false)
+      const res = await fetch('http://localhost:8888/api/zhilian/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
+      if (res.ok) {
+        try { await fetch('http://localhost:8888/api/cookie/save?platform=zhilian', { method: 'POST' }) } catch (e) {}
+        setSaveResult({ success: true, message: '保存成功' })
+        setShowSaveDialog(true)
+        fetchConfig()
+      } else {
+        setSaveResult({ success: false, message: '保存失败' })
+        setShowSaveDialog(true)
+      }
+    } catch (e) {
+      setSaveResult({ success: false, message: '网络异常' })
+      setShowSaveDialog(true)
     }
   }
 
-  const handleStopDelivery = async () => {
+  const handleAddBlacklist = async () => {
+    if (!newBlacklistKeyword.trim()) return
     try {
-      const response = await fetch('http://localhost:8888/api/zhilian/stop', { method: 'POST' })
-      const data = await response.json()
-      if (data.success) setIsDelivering(false)
-    } catch (error) {}
+      await fetch('http://localhost:8888/api/zhilian/config/blacklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: newBlacklistKeyword, type: blacklistType }),
+      })
+      setNewBlacklistKeyword('')
+      fetchConfig()
+    } catch (e) {}
+  }
+
+  const handleDeleteBlacklist = async (id: number) => {
+    try {
+      await fetch(`http://localhost:8888/api/zhilian/config/blacklist/${id}`, { method: 'DELETE' })
+      fetchConfig()
+    } catch (e) {}
+  }
+
+  const handleStartDelivery = async () => {
+    try { setIsDelivering(true); await fetch('http://localhost:8888/api/zhilian/start', { method: 'POST' }) }
+    catch (e) { setIsDelivering(false) }
+  }
+
+  const handleStopDelivery = async () => {
+    try { await fetch('http://localhost:8888/api/zhilian/stop', { method: 'POST' }); setIsDelivering(false) }
+    catch (e) { setIsDelivering(false) }
   }
 
   const triggerLogout = async () => {
     try {
-      const response = await fetch('http://localhost:8888/api/zhilian/logout', { method: 'POST' })
-      const data = await response.json()
-      setIsLoggedIn(false)
-      setLogoutResult({ success: data.success, message: data.success ? '已退出登录，Cookie已清空。' : data.message })
-      setShowLogoutResultDialog(true)
-    } catch (error) {
-      setLogoutResult({ success: false, message: '退出登录失败：网络或服务异常。' })
-      setShowLogoutResultDialog(true)
-    }
-  }
-
-  const handleSaveCookie = async () => {
-    try {
-      const response = await fetch('http://localhost:8888/api/cookie/save?platform=zhilian', { method: 'POST' })
-      const data = await response.json()
-      setSaveResult({ success: data.success, message: data.success ? '配置保存成功。' : data.message })
-      setShowSaveDialog(true)
-    } catch (error) {
-      setSaveResult({ success: false, message: '配置保存失败：网络或服务异常。' })
-      setShowSaveDialog(true)
-    }
-  }
-
-  const handleSaveConfig = async () => {
-    try {
-      const payload = { ...config, keywords: serializeKeywordsForDb(config.keywords) }
-      const response = await fetch('http://localhost:8888/api/zhilian/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (response.ok) {
-        try { await fetch('http://localhost:8888/api/cookie/save?platform=zhilian', { method: 'POST' }) } catch {}
-        await fetchAllData()
-        setSaveResult({ success: true, message: '保存成功，配置已更新。' })
+      const res = await fetch('http://localhost:8888/api/zhilian/logout', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        setIsLoggedIn(false); setIsDelivering(false)
+        setLogoutResult({ success: true, message: '已退出登录' })
       } else {
-        setSaveResult({ success: false, message: '保存失败：后端返回异常状态。' })
+        setLogoutResult({ success: false, message: data.message || '退出失败' })
       }
-      setShowSaveDialog(true)
-    } catch (error) {
-      console.error('[智联] 保存配置失败:', error)
-      setSaveResult({ success: false, message: '保存失败：网络或服务异常。' })
-      setShowSaveDialog(true)
+    } catch (e) {
+      setLogoutResult({ success: false, message: '网络异常' })
     }
+    setShowLogoutResultDialog(true)
   }
+
+  if (loadingConfig) return <div className="flex items-center justify-center h-screen">加载中...</div>
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <PageHeader
-        icon={<BiBriefcase className="text-2xl" />}
-        title="智联招聘配置"
-        subtitle="配置智联招聘平台的求职参数"
-        iconClass="text-white"
-        accentBgClass="bg-purple-500"
-        actions={
-          <div className="flex items-center gap-2">
-            {checkingLogin ? (
-              <Button size="sm" disabled className="rounded-full bg-gray-300 text-gray-600 cursor-not-allowed px-4 shadow">
-                <BiPlay className="mr-1" /> 检查登录中...
-              </Button>
-            ) : !isLoggedIn ? (
-              <Button size="sm" disabled className="rounded-full bg-gray-300 text-gray-600 cursor-not-allowed px-4 shadow">
-                <BiPlay className="mr-1" /> 请先登录智联招聘
-              </Button>
-            ) : isDelivering ? (
-              <Button onClick={handleStopDelivery} size="sm" className="rounded-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <BiStop className="mr-1" /> 停止投递
-              </Button>
-            ) : (
-              <Button onClick={handleStartDelivery} size="sm" className="rounded-full bg-gradient-to-r from-teal-500 to-green-500 hover:from-teal-600 hover:to-green-600 text-white px-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                <BiPlay className="mr-1" /> 开始投递
-              </Button>
-            )}
-            <Button onClick={() => setShowLogoutDialog(true)} size="sm" className="rounded-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-              <BiLogOut className="mr-1" /> 退出登录
-            </Button>
-            <Button onClick={handleSaveConfig} size="sm" className="rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white px-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-              <BiSave className="mr-1" /> 保存配置
-            </Button>
-          </div>
-        }
+        title="智联招聘"
+        isLoggedIn={isLoggedIn}
+        checkingLogin={checkingLogin}
+        isDelivering={isDelivering}
+        onStartDelivery={handleStartDelivery}
+        onStopDelivery={handleStopDelivery}
+        onLogout={() => setShowLogoutDialog(true)}
+        backendAvailable={backendAvailable}
       />
 
-      <Tabs defaultValue="config" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="config">平台配置</TabsTrigger>
-          <TabsTrigger value="analytics">投递分析</TabsTrigger>
+      <Tabs defaultValue="config">
+        <TabsList>
+          <TabsTrigger value="config">配置</TabsTrigger>
+          <TabsTrigger value="analytics">岗位分析</TabsTrigger>
         </TabsList>
 
         <TabsContent value="config" className="space-y-6 mt-6">
-          <Card className="animate-in fade-in slide-in-from-bottom-5 duration-700">
+          {/* 基本配置 */}
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BiBriefcase className="text-primary" />
-                智联招聘平台说明
-              </CardTitle>
+              <CardTitle>基本配置</CardTitle>
+              <CardDescription>
+                <Button onClick={handleSave} className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white">
+                  <BiSave /> 保存配置
+                </Button>
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">请在浏览器标签页中登录智联招聘平台，登录成功后系统会自动检测登录状态。</p>
-                <p className="text-sm text-muted-foreground">登录成功后，点击"开始投递"按钮启动自动投递任务。</p>
-                <p className="text-sm text-muted-foreground">点击"保存配置"按钮可手动保存当前登录相关信息到数据库。</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>调试模式</Label>
+                  <Select value={String(config.debugger ?? 0)} onChange={(e) => setConfig({ ...config, debugger: Number(e.target.value) })}>
+                    <option value="0">关闭</option>
+                    <option value="1">开启（仅浏览不投递）</option>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>投递间隔（秒）</Label>
+                  <Input type="number" min="0" max="300" value={config.waitTime ?? ''}
+                    onChange={(e) => setConfig({ ...config, waitTime: e.target.value ? Number(e.target.value) : undefined })}
+                    placeholder="例如 5" className="rounded-full" />
+                  <p className="text-xs text-muted-foreground">每个岗位投递后的等待秒数，0 或留空表示不等待</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>搜索关键词</Label>
+                  <Input value={config.keywords || ''} onChange={(e) => setConfig({ ...config, keywords: e.target.value })}
+                    placeholder="例如 Java, 后端" className="rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  <Label>工作城市</Label>
+                  <Select value={config.cityCode || ''} onChange={(e) => setConfig({ ...config, cityCode: e.target.value })}>
+                    <option value="">不限</option>
+                    {(options.city || []).map((c) => (
+                      <option key={c.code} value={c.code}>{c.name}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>薪资范围</Label>
+                  <Select value={config.salary || '0'} onChange={(e) => setConfig({ ...config, salary: e.target.value })}>
+                    <option value="0">不限</option>
+                    <option value="3k-5k">3k-5k</option>
+                    <option value="5k-10k">5k-10k</option>
+                    <option value="10k-15k">10k-15k</option>
+                    <option value="15k-20k">15k-20k</option>
+                    <option value="20k-30k">20k-30k</option>
+                    <option value="30k-50k">30k-50k</option>
+                    <option value="50k+">50k以上</option>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>学历要求</Label>
+                  <Select value={config.degree || ''} onChange={(e) => setConfig({ ...config, degree: e.target.value })}>
+                    <option value="">不限</option>
+                    <option value="大专">大专</option>
+                    <option value="本科">本科</option>
+                    <option value="硕士">硕士</option>
+                    <option value="博士">博士</option>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>工作经验</Label>
+                  <Select value={config.experience || ''} onChange={(e) => setConfig({ ...config, experience: e.target.value })}>
+                    <option value="">不限</option>
+                    <option value="应届">应届</option>
+                    <option value="1-3年">1-3年</option>
+                    <option value="3-5年">3-5年</option>
+                    <option value="5-10年">5-10年</option>
+                    <option value="10年以上">10年以上</option>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>HR活跃过滤</Label>
+                  <Select value={String(config.filterDeadHr ?? 0)} onChange={(e) => setConfig({ ...config, filterDeadHr: Number(e.target.value) })}>
+                    <option value="0">关闭</option>
+                    <option value="1">开启</option>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">开启后将过滤不活跃的HR</p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* 配置表单 */}
-          <Card className="animate-in fade-in slide-in-from-bottom-5 duration-700">
+          {/* 黑名单 */}
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BiBriefcase className="text-primary" />
-                配置参数
+                <BiSearch className="text-primary" /> 黑名单管理 ({blacklist.length} 条)
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingConfig ? (
-                <p className="text-sm text-muted-foreground">配置加载中...</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>搜索关键词（逗号分隔）</Label>
-                    <Input
-                      placeholder="如：Java, 后端, Spring"
-                      value={config.keywords || ''}
-                      onChange={(e) => setConfig((c) => ({ ...c, keywords: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>城市</Label>
-                    <Select
-                      value={config.cityCode || ''}
-                      onChange={(e) => setConfig((c) => ({ ...c, cityCode: e.target.value }))}
-                      placeholder="请选择城市"
-                    >
-                      {options.city.map((o) => (
-                        <option key={o.code} value={o.code}>{o.name}</option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>薪资范围（最低和最高工资，用逗号分割）</Label>
-                    <Input
-                      placeholder="如：12000, 20000 或 不限"
-                      value={config.salary || ''}
-                      onChange={(e) => setConfig((c) => ({ ...c, salary: e.target.value }))}
-                    />
-                  </div>
-                </div>
-              )}
+              <div className="flex gap-2 mb-4">
+                <Select value={blacklistType} onChange={(e) => setBlacklistType(e.target.value)} className="w-32">
+                  <option value="company">公司</option>
+                  <option value="job">岗位</option>
+                </Select>
+                <Input value={newBlacklistKeyword} onChange={(e) => setNewBlacklistKeyword(e.target.value)}
+                  placeholder="输入关键词" onKeyDown={(e) => { if (e.key === 'Enter') handleAddBlacklist() }} />
+                <Button onClick={handleAddBlacklist} className="whitespace-nowrap"><BiPlus /> 添加</Button>
+              </div>
+              <div className="space-y-2">
+                {blacklist.length === 0 ? (
+                  <p className="text-center py-4 text-muted-foreground text-xs">暂无黑名单</p>
+                ) : (
+                  blacklist.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border">
+                      <span className="text-sm">
+                        <span className="text-xs text-muted-foreground mr-2">[{item.type === 'company' ? '公司' : '岗位'}]</span>
+                        {item.value}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteBlacklist(item.id)}
+                        className="text-red-500 hover:text-red-700"><BiTrash /></Button>
+                    </div>
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -332,59 +330,39 @@ export default function ZhilianPage() {
         </TabsContent>
       </Tabs>
 
+      {/* 保存结果弹框 */}
+      {showSaveDialog && saveResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-[92%] max-w-sm border p-6">
+            <h3 className="text-lg font-semibold mb-2">{saveResult.success ? '保存成功' : '保存失败'}</h3>
+            <p className="text-sm text-muted-foreground mb-4">{saveResult.message}</p>
+            <Button onClick={() => setShowSaveDialog(false)} className="w-full rounded-full">知道了</Button>
+          </div>
+        </div>
+      )}
+
       {/* 退出确认弹框 */}
       {showLogoutDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <Card className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-[92%] max-w-sm border-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BiLogOut className="text-red-500" /> 确认退出登录
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">退出后将清除Cookie并切换为未登录状态。</p>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setShowLogoutDialog(false)} className="rounded-full px-4">取消</Button>
-                <Button onClick={async () => { await triggerLogout(); setShowLogoutDialog(false) }} className="rounded-full bg-gradient-to-r from-red-500 to-rose-600 text-white px-4">确认退出</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-[92%] max-w-sm border p-6">
+            <h3 className="text-lg font-semibold mb-2">确认退出</h3>
+            <p className="text-sm text-muted-foreground mb-4">退出后将清除Cookie并切换为未登录状态。</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setShowLogoutDialog(false)}>取消</Button>
+              <Button onClick={async () => { await triggerLogout(); setShowLogoutDialog(false) }}
+                className="bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-full">确认退出</Button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* 退出登录结果弹框 */}
       {showLogoutResultDialog && logoutResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <Card className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-[92%] max-w-sm border-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BiLogOut className={logoutResult.success ? 'text-green-500' : 'text-red-500'} />
-                {logoutResult.success ? '退出登录成功' : '退出登录失败'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">{logoutResult.message}</p>
-              <Button onClick={() => setShowLogoutResultDialog(false)} className={`rounded-full px-4 ${logoutResult.success ? 'bg-green-500' : 'bg-red-500'} text-white`}>知道了</Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 保存Cookie结果弹框 */}
-      {showSaveDialog && saveResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <Card className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-[92%] max-w-sm border-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BiSave className={saveResult.success ? 'text-green-500' : 'text-red-500'} />
-                {saveResult.success ? '保存成功' : '保存失败'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">{saveResult.message}</p>
-              <Button onClick={() => setShowSaveDialog(false)} className={`rounded-full px-4 ${saveResult.success ? 'bg-green-500' : 'bg-red-500'} text-white`}>知道了</Button>
-            </CardContent>
-          </Card>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-[92%] max-w-sm border p-6">
+            <h3 className="text-lg font-semibold mb-2">{logoutResult.success ? '退出成功' : '退出失败'}</h3>
+            <p className="text-sm text-muted-foreground mb-4">{logoutResult.message}</p>
+            <Button onClick={() => setShowLogoutResultDialog(false)} className="w-full rounded-full">知道了</Button>
+          </div>
         </div>
       )}
     </div>
