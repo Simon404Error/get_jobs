@@ -1,11 +1,14 @@
 package com.getjobs.application.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.getjobs.application.entity.LiepinEntity;
 import com.getjobs.application.entity.LiepinConfigEntity;
 import com.getjobs.application.entity.LiepinOptionEntity;
 import com.getjobs.application.mapper.LiepinConfigMapper;
 import com.getjobs.application.mapper.LiepinOptionMapper;
+import com.getjobs.application.entity.BlacklistEntity;
+import com.getjobs.application.mapper.BlacklistMapper;
 import com.getjobs.application.mapper.LiepinMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +36,7 @@ public class LiepinService {
 
     private final LiepinConfigMapper liepinConfigMapper;
     private final LiepinOptionMapper liepinOptionMapper;
+    private final BlacklistMapper blacklistMapper;
     // 记录持久化相关依赖（整合自 LiepinRecordService）
     private final LiepinMapper liepinMapper;
     private final DataSource dataSource;
@@ -76,6 +80,28 @@ public class LiepinService {
             log.info("确保 liepin_data 表已存在");
         } catch (Exception e) {
             log.warn("创建 liepin_data 表失败: {}", e.getMessage());
+        }
+    }
+
+    @PostConstruct
+    public void migrateLiepinConfigColumns() {
+        String[] sqls = {
+            "ALTER TABLE liepin_config ADD COLUMN debugger INTEGER DEFAULT 0",
+            "ALTER TABLE liepin_config ADD COLUMN wait_time INTEGER DEFAULT NULL",
+            "ALTER TABLE liepin_config ADD COLUMN degree VARCHAR(50)",
+            "ALTER TABLE liepin_config ADD COLUMN experience VARCHAR(50)",
+            "ALTER TABLE liepin_config ADD COLUMN filter_dead_hr INTEGER DEFAULT 0"
+        };
+        for (String sql : sqls) {
+            try (java.sql.Connection conn = dataSource.getConnection();
+                 java.sql.Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+            } catch (Exception e) {
+                String msg = e.getMessage();
+                if (msg == null || (!msg.contains("duplicate") && !msg.contains("already exists"))) {
+                    log.warn("liepin_config migration: {}", msg);
+                }
+            }
         }
     }
 
@@ -300,6 +326,28 @@ public class LiepinService {
     /**
      * 根据类型获取选项列表
      */
+    // ========== 黑名单 ==========
+
+    public List<BlacklistEntity> getAllBlacklist() {
+        return blacklistMapper.selectList(null);
+    }
+
+    public boolean addBlacklist(String type, String value) {
+        LambdaQueryWrapper<BlacklistEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BlacklistEntity::getType, type).eq(BlacklistEntity::getValue, value);
+        if (blacklistMapper.selectCount(wrapper) > 0) return false;
+        BlacklistEntity entity = new BlacklistEntity();
+        entity.setType(type);
+        entity.setValue(value);
+        return blacklistMapper.insert(entity) > 0;
+    }
+
+    public boolean removeBlacklist(String type, String value) {
+        LambdaQueryWrapper<BlacklistEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BlacklistEntity::getType, type).eq(BlacklistEntity::getValue, value);
+        return blacklistMapper.delete(wrapper) > 0;
+    }
+
     public List<LiepinOptionEntity> getOptionsByType(String type) {
         QueryWrapper<LiepinOptionEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("type", type);

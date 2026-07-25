@@ -184,36 +184,10 @@ public class LiepinController {
     // ==================== 配置管理（合并） ====================
 
     /** 获取所有猎聘配置信息（包括选项） */
-    @GetMapping("/config")
-    public Map<String, Object> getAllLiepinConfig() {
-        Map<String, Object> result = new HashMap<>();
-        LiepinConfigEntity config = liepinService.getFirstConfig();
-        if (config == null) config = new LiepinConfigEntity();
-        Map<String, java.util.List<LiepinOptionEntity>> options = new HashMap<>();
-        options.put("city", liepinService.getOptionsByType("city"));
-        result.put("config", config);
-        result.put("options", options);
-        return result;
-    }
 
     /** 更新猎聘配置 */
-    @PutMapping("/config")
-    public LiepinConfigEntity updateConfig(@RequestBody LiepinConfigEntity config) {
-        if (config.getCity() != null && !config.getCity().isEmpty()) {
-            String cityName = liepinService.normalizeCityToName(config.getCity());
-            config.setCity(cityName);
-        }
-        if (config.getId() != null) {
-            return liepinService.updateConfig(config);
-        }
-        return liepinService.saveOrUpdateFirstSelective(config);
-    }
 
     /** 获取指定类型的选项列表 */
-    @GetMapping("/config/options/{type}")
-    public java.util.List<LiepinOptionEntity> getOptionsByType(@PathVariable String type) {
-        return liepinService.getOptionsByType(type);
-    }
 
     // ==================== 投递分析（合并） ====================
 

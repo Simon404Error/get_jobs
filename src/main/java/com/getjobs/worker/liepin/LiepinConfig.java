@@ -24,5 +24,15 @@ public class LiepinConfig {
      * 薪资范围
      */
     private String salary;
+    /** 调试模式 */
+    private Boolean debugger;
+    /** 投递间隔（秒） */
+    private String waitTime;
+    /** 学历要求 */
+    private String degree;
+    /** 工作经验 */
+    private String experience;
+    /** 是否过滤不活跃HR */
+    private Boolean filterDeadHR;
 
 }

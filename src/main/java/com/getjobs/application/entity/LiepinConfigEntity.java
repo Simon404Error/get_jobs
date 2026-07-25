@@ -22,6 +22,16 @@ public class LiepinConfigEntity {
 
     /** 薪资代码或范围 */
     private String salaryCode;
+    /** 调试模式：1=开启，0=关闭 */
+    private Integer debugger;
+    /** 投递间隔（秒） */
+    private Integer waitTime;
+    /** 学历要求 */
+    private String degree;
+    /** 工作经验 */
+    private String experience;
+    /** 是否过滤不活跃HR（1=启用，0=关闭） */
+    private Integer filterDeadHr;
 
     /** 创建时间 */
     private LocalDateTime createdAt;
