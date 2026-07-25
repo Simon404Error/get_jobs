@@ -262,6 +262,31 @@ public class ZhilianService {
         }
     }
 
+    @PostConstruct
+    public void migrateZhilianConfigColumns() {
+        String[] sqls = {
+            "ALTER TABLE zhilian_config ADD COLUMN debugger INTEGER DEFAULT 0",
+            "ALTER TABLE zhilian_config ADD COLUMN wait_time INTEGER DEFAULT NULL",
+            "ALTER TABLE zhilian_config ADD COLUMN degree VARCHAR(50)",
+            "ALTER TABLE zhilian_config ADD COLUMN experience VARCHAR(50)",
+            "ALTER TABLE zhilian_config ADD COLUMN filter_dead_hr INTEGER DEFAULT 0"
+        };
+        for (String sql : sqls) {
+            try (java.sql.Connection conn = dataSource.getConnection();
+                 java.sql.Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+                log.info("zhilian_config migration: executed");
+            } catch (Exception e) {
+                String msg = e.getMessage();
+                if (msg != null && (msg.contains("duplicate") || msg.contains("already exists"))) {
+                    // column already exists, ok
+                } else {
+                    log.warn("zhilian_config migration: {}", msg);
+                }
+            }
+        }
+    }
+
     public boolean existsByJobId(String jobId) {
         if (jobId == null || jobId.trim().isEmpty()) return false;
         QueryWrapper<ZhilianJobDataEntity> w = new QueryWrapper<>();
